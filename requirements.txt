@@ -8,8 +8,8 @@ langchain-community==0.0.38
 langchain-google-genai
 google-generativeai
 
-# Vector Store and Embeddings
-faiss-cpu==1.7.4
+# Vector Store and Embeddings - Alternative to FAISS
+chromadb==0.4.22
 
 # PDF Processing
 pypdf==4.3.1

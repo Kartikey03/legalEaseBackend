@@ -5,11 +5,10 @@ import threading
 from datetime import datetime
 from flask import Flask, request, render_template, jsonify, session
 
-
-# Updated LangChain imports
+# Updated LangChain imports - replacing FAISS with ChromaDB
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma  # Changed from FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAI
 from langchain.chains import RetrievalQA
@@ -21,13 +20,13 @@ import json
 import sys
 import platform
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Print Python version info for debugging
 print(f"Python version: {sys.version}")
 print(f"Platform: {platform.platform()}")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this'  # Change this in production
@@ -172,13 +171,13 @@ def create_enhanced_prompt():
     )
 
 def initialize_system():
-    """Initialize the LangChain system with enhanced error handling and event loop management"""
+    """Initialize the LangChain system with ChromaDB instead of FAISS"""
     global qa_chain, vectorstore, system_initialized
     
     try:
         logger.info("Starting system initialization...")
         
-        # Ensure event loop exists - Method 1 (Simple)
+        # Ensure event loop exists
         ensure_event_loop()
         
         # Check for API key
@@ -212,24 +211,32 @@ def initialize_system():
         
         logger.info(f"Split into {len(texts)} text chunks")
         
-        # Create embeddings and vector store with error handling
-        logger.info("Creating embeddings...")
+        # Create embeddings and vector store with ChromaDB
+        logger.info("Creating embeddings with ChromaDB...")
         try:
             embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            vectorstore = FAISS.from_documents(texts, embeddings)
+            
+            # Create a temporary directory for ChromaDB
+            persist_directory = "./chroma_db"
+            
+            # Create ChromaDB vectorstore
+            vectorstore = Chroma.from_documents(
+                documents=texts,
+                embedding=embeddings,
+                persist_directory=persist_directory
+            )
+            
         except Exception as e:
             logger.error(f"Error creating embeddings: {e}")
-            # Fallback: try with different approach or show specific error
             if "event loop" in str(e).lower():
                 logger.info("Retrying with thread-safe approach...")
-                # You could implement a retry with the thread-based approach here
                 raise RuntimeError("Event loop issue detected. Please restart the application and try again.")
             raise
         
         # Initialize the LLM with optimized parameters
         llm = GoogleGenerativeAI(
             model='gemini-2.0-flash',
-            temperature=0.2,  # Lower for more consistent legal documents
+            temperature=0.2,
             max_output_tokens=8192
         )
         
@@ -241,11 +248,9 @@ def initialize_system():
             llm=llm,
             chain_type="stuff",
             retriever=vectorstore.as_retriever(
-                search_type="mmr",  # Maximum Marginal Relevance
+                search_type="similarity",  # ChromaDB uses similarity search
                 search_kwargs={
                     "k": 8,  # Retrieve more relevant chunks
-                    "fetch_k": 20,  # Consider more documents for MMR
-                    "lambda_mult": 0.5  # Diversity parameter
                 }
             ),
             chain_type_kwargs={"prompt": prompt},
@@ -261,7 +266,6 @@ def initialize_system():
         system_initialized = False
         raise e
 
-# Alternative initialization function using thread-based approach
 def initialize_system_threaded():
     """Initialize the system using a separate thread with its own event loop"""
     global qa_chain, vectorstore, system_initialized
@@ -301,10 +305,16 @@ def initialize_system_threaded():
             
             logger.info(f"Split into {len(texts)} text chunks")
             
-            # Create embeddings and vector store
+            # Create embeddings and vector store with ChromaDB
             logger.info("Creating embeddings...")
             embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            vectorstore = FAISS.from_documents(texts, embeddings)
+            
+            persist_directory = "./chroma_db"
+            vectorstore = Chroma.from_documents(
+                documents=texts,
+                embedding=embeddings,
+                persist_directory=persist_directory
+            )
             
             # Initialize the LLM
             llm = GoogleGenerativeAI(
@@ -321,12 +331,8 @@ def initialize_system_threaded():
                 llm=llm,
                 chain_type="stuff",
                 retriever=vectorstore.as_retriever(
-                    search_type="mmr",
-                    search_kwargs={
-                        "k": 8,
-                        "fetch_k": 20,
-                        "lambda_mult": 0.5
-                    }
+                    search_type="similarity",
+                    search_kwargs={"k": 8}
                 ),
                 chain_type_kwargs={"prompt": prompt},
                 return_source_documents=True
@@ -551,4 +557,4 @@ if __name__ == '__main__':
     print(f"🌐 Server starting at http://{host}:{port}")
     print("="*60)
     
-    app.run(debug=False, host=host, port=port)  # Set debug=False for production
+    app.run(debug=False, host=host, port=port)
