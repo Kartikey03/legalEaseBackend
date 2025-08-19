@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Document Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .form-container {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: #34495e;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+
+        .alert-info {
+            color: #31708f;
+            background-color: #d9edf7;
+            border-color: #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚖️ Legal Document Generator</h1>
+            <p>Generate professional legal documents based on the Indian Constitution</p>
+        </div>
+
+        <div class="form-container">
+            <!-- Constitution Upload Section -->
+            <div class="upload-section">
+                <h3>📄 Upload Indian Constitution PDF (Admin Only)</h3>
+                <p style="margin: 10px 0; color: #666;">Upload the Indian Constitution PDF to initialize the system</p>
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <input type="file" id="constitutionFile" name="file" accept=".pdf" style="margin-bottom: 10px;">
+                    <button type="submit" class="btn-secondary">Upload Constitution</button>
+                </form>
+                <button onclick="initializeSystem()" class="btn-secondary">Initialize System</button>
+                <div id="uploadStatus"></div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Note:</strong> Please ensure the system is initialized with the Indian Constitution PDF before generating documents.
+            </div>
+
+            <!-- Legal Document Generation Form -->
+            <form id="legalForm" method="POST" action="/generate_document">
+                <div class="form-group">
+                    <label for="case_type">Case Type</label>
+                    <select id="case_type" name="case_type" required>
+                        <option value="">Select Case Type</option>
+                        <option value="civil">Civil Case</option>
+                        <option value="criminal">Criminal Case</option>
+                        <option value="constitutional">Constitutional Case</option>
+                        <option value="writ_petition">Writ Petition</option>
+                        <option value="family">Family Law Case</option>
+                        <option value="property">Property Dispute</option>
+                        <option value="employment">Employment Dispute</option>
+                        <option value="consumer">Consumer Protection</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="plaintiff_name">Plaintiff/Petitioner Name</label>
+                    <input type="text" id="plaintiff_name" name="plaintiff_name" 
+                           placeholder="Enter the name of the person filing the case" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="defendant_name">Defendant/Respondent Name</label>
+                    <input type="text" id="defendant_name" name="defendant_name" 
+                           placeholder="Enter the name of the opposing party" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="case_details">Case Details & Facts</label>
+                    <textarea id="case_details" name="case_details" 
+                              placeholder="Provide detailed description of the case, including relevant facts, dates, and circumstances. Be as specific as possible to generate an accurate legal document." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="relief_sought">Relief/Remedy Sought</label>
+                    <textarea id="relief_sought" name="relief_sought" 
+                              placeholder="Describe what remedy or relief you are seeking from the court (e.g., compensation, injunction, declaration, etc.)" required></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    Generate Legal Document
+                </button>
+            </form>
+
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Generating your legal document... This may take a few moments.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle form submission
+        document.getElementById('legalForm').addEventListener('submit', function(e) {
+            document.getElementById('loading').style.display = 'block';
+        });
+
+        // Handle constitution upload
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('constitutionFile');
+            formData.append('file', fileInput.files[0]);
+            
+            fetch('/upload_constitution', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = document.getElementById('uploadStatus');
+                if (data.error) {
+                    status.innerHTML = `<div style="color: red; margin-top: 10px;">Error: ${data.error}</div>`;
+                } else {
+                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('uploadStatus').innerHTML = 
+                    `<div style="color: red; margin-top: 10px;">Upload failed: ${error}</div>`;
+            });
+        });
+
+        // Initialize system function
+        function initializeSystem() {
+            fetch('/initialize', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = document.getElementById('uploadStatus');
+                if (data.error) {
+                    status.innerHTML = `<div style="color: red; margin-top: 10px;">Error: ${data.error}</div>`;
+                } else {
+                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('uploadStatus').innerHTML = 
+                    `<div style="color: red; margin-top: 10px;">Initialization failed: ${error}</div>`;
+            });
+        }
+    </script>
+</body>
+</html>
