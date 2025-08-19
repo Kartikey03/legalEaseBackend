@@ -9,7 +9,7 @@ langchain-google-genai
 google-generativeai
 
 # Vector Store and Embeddings
-faiss-cpu==1.8.0
+faiss-cpu==1.7.4
 
 # PDF Processing
 pypdf==4.3.1
