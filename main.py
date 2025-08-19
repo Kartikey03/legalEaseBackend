@@ -18,10 +18,16 @@ from langchain.prompts import PromptTemplate
 from werkzeug.utils import secure_filename
 import tempfile
 import json
+import sys
+import platform
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Print Python version info for debugging
+print(f"Python version: {sys.version}")
+print(f"Platform: {platform.platform()}")
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this'  # Change this in production
@@ -526,6 +532,7 @@ if __name__ == '__main__':
     print("🏛️  LEGAL DOCUMENT GENERATOR")
     print("="*60)
     print("🔧 Starting application...")
+    print(f"🐍 Python version: {sys.version}")
     print(f"📁 Upload folder: {UPLOAD_FOLDER}")
     print(f"🔑 API Key set: {'✅' if os.environ.get('GOOGLE_API_KEY') else '❌'}")
     print(f"📄 Constitution PDF: {'✅' if os.path.exists('indian_constitution.pdf') else '❌'}")
@@ -536,7 +543,12 @@ if __name__ == '__main__':
     print("3. Initialize the system")
     print("4. Start generating legal documents!")
     print("="*60)
-    print("🌐 Server starting at http://localhost:5000")
+    
+    # Use PORT from environment for Render deployment
+    port = int(os.environ.get('PORT', 5000))
+    host = '0.0.0.0'
+    
+    print(f"🌐 Server starting at http://{host}:{port}")
     print("="*60)
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host=host, port=port)  # Set debug=False for production
