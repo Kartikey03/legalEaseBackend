@@ -149,30 +149,6 @@
             background-color: #d9edf7;
             border-color: #bee5eb;
         }
-
-        .status-message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-        }
-
-        .status-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-loading {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
     </style>
 </head>
 <body>
@@ -263,47 +239,48 @@
         document.getElementById('uploadForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const fileInput = document.getElementById('constitutionFile');
-            const statusDiv = document.getElementById('uploadStatus');
-            
-            if (!fileInput.files[0]) {
-                showStatus('Please select a PDF file first.', 'error');
-                return;
-            }
-            
-            showStatus('Uploading file...', 'loading');
-            
             const formData = new FormData();
+            const fileInput = document.getElementById('constitutionFile');
             formData.append('file', fileInput.files[0]);
             
             fetch('/upload_constitution', {
                 method: 'POST',
                 body: formData
             })
-            .then(async response => {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return response.json();
-                } else {
-                    // If not JSON, get the text and throw an error
-                    const text = await response.text();
-                    throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}...`);
-                }
-            })
+            .then(response => response.json())
             .then(data => {
+                const status = document.getElementById('uploadStatus');
                 if (data.error) {
-                    showStatus(`Error: ${data.error}`, 'error');
+                    status.innerHTML = `<div style="color: red; margin-top: 10px;">Error: ${data.error}</div>`;
                 } else {
-                    showStatus(`✅ ${data.message}`, 'success');
+                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✅ ${data.message}</div>`;
                 }
             })
             .catch(error => {
-                console.error('Upload error:', error);
-                showStatus(`Upload failed: ${error.message}`, 'error');
+                document.getElementById('uploadStatus').innerHTML = 
+                    `<div style="color: red; margin-top: 10px;">Upload failed: ${error}</div>`;
             });
         });
 
         // Initialize system function
         function initializeSystem() {
-            const statusDiv = document.getElementById('uploadStatus');
+            fetch('/initialize', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = document.getElementById('uploadStatus');
+                if (data.error) {
+                    status.innerHTML = `<div style="color: red; margin-top: 10px;">Error: ${data.error}</div>`;
+                } else {
+                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('uploadStatus').innerHTML = 
+                    `<div style="color: red; margin-top: 10px;">Initialization failed: ${error}</div>`;
+            });
         }
+    </script>
+</body>
+</html>
