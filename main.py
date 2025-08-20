@@ -19,6 +19,7 @@ import tempfile
 import json
 import sys
 import platform
+import traceback
 
 # Print Python version info for debugging
 print(f"Python version: {sys.version}")
@@ -43,6 +44,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 qa_chain = None
 vectorstore = None
 system_initialized = False
+initialization_error = None
 
 # Enhanced legal document templates
 DOCUMENT_TEMPLATES = {
@@ -67,34 +69,6 @@ DOCUMENT_TEMPLATES = {
         'format': 'writ_petition'
     }
 }
-
-def run_async_in_thread(coro):
-    """
-    Run an async function in a new thread with its own event loop.
-    This solves the event loop issue in Flask threads.
-    """
-    def run_in_thread():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-    
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(run_in_thread)
-        return future.result()
-
-def ensure_event_loop():
-    """
-    Ensure there's an event loop in the current thread.
-    Alternative approach - simpler but less robust.
-    """
-    try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-        asyncio.set_event_loop(asyncio.new_event_loop())
 
 def allowed_file(filename):
     """Check if uploaded file is allowed"""
@@ -171,136 +145,38 @@ def create_enhanced_prompt():
     )
 
 def initialize_system():
-    """Initialize the LangChain system with ChromaDB instead of FAISS"""
-    global qa_chain, vectorstore, system_initialized
+    """Initialize the LangChain system with enhanced error handling"""
+    global qa_chain, vectorstore, system_initialized, initialization_error
     
     try:
         logger.info("Starting system initialization...")
-        
-        # Ensure event loop exists
-        ensure_event_loop()
+        initialization_error = None
         
         # Check for API key
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable not set")
+            raise ValueError("GOOGLE_API_KEY environment variable not set. Please set your Google API key.")
         
         # Check if PDF exists
         pdf_path = 'indian_constitution.pdf'
         if not os.path.exists(pdf_path):
-            raise FileNotFoundError(f"Constitution PDF not found at {pdf_path}")
+            raise FileNotFoundError(f"Constitution PDF not found at {pdf_path}. Please upload the Indian Constitution PDF first.")
         
         # Load the Indian Constitution PDF
         logger.info("Loading Indian Constitution PDF...")
-        loader = PyPDFLoader(pdf_path)
-        documents = loader.load()
+        try:
+            loader = PyPDFLoader(pdf_path)
+            documents = loader.load()
+        except Exception as e:
+            raise Exception(f"Failed to load PDF: {str(e)}. Please ensure the PDF is valid and not corrupted.")
         
         if not documents:
-            raise ValueError("No content found in the PDF")
+            raise ValueError("No content found in the PDF. Please ensure the PDF contains readable text.")
         
         logger.info(f"Loaded {len(documents)} pages from the Constitution")
         
         # Split documents into chunks with optimized parameters
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1500,
-            chunk_overlap=300,
-            length_function=len,
-            separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""]
-        )
-        texts = text_splitter.split_documents(documents)
-        
-        logger.info(f"Split into {len(texts)} text chunks")
-        
-        # Create embeddings and vector store with ChromaDB
-        logger.info("Creating embeddings with ChromaDB...")
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            
-            # Create ChromaDB vectorstore (in-memory for deployment)
-            # For production deployment, we use in-memory storage
-            if os.environ.get('RENDER'):  # Render deployment
-                vectorstore = Chroma.from_documents(
-                    documents=texts,
-                    embedding=embeddings,
-                    # No persist_directory = in-memory storage
-                )
-            else:  # Local development
-                persist_directory = "./chroma_db"
-                vectorstore = Chroma.from_documents(
-                    documents=texts,
-                    embedding=embeddings,
-                    persist_directory=persist_directory
-                )
-            
-        except Exception as e:
-            logger.error(f"Error creating embeddings: {e}")
-            if "event loop" in str(e).lower():
-                logger.info("Retrying with thread-safe approach...")
-                raise RuntimeError("Event loop issue detected. Please restart the application and try again.")
-            raise
-        
-        # Initialize the LLM with optimized parameters
-        llm = GoogleGenerativeAI(
-            model='gemini-2.0-flash',
-            temperature=0.2,
-            max_output_tokens=8192
-        )
-        
-        # Create enhanced prompt template
-        prompt = create_enhanced_prompt()
-        
-        # Create the QA chain with enhanced retrieval
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type="stuff",
-            retriever=vectorstore.as_retriever(
-                search_type="similarity",  # ChromaDB uses similarity search
-                search_kwargs={
-                    "k": 8,  # Retrieve more relevant chunks
-                }
-            ),
-            chain_type_kwargs={"prompt": prompt},
-            return_source_documents=True
-        )
-        
-        system_initialized = True
-        logger.info("System initialization completed successfully!")
-        return "System initialized successfully! Ready to generate legal documents."
-        
-    except Exception as e:
-        logger.error(f"System initialization failed: {str(e)}")
-        system_initialized = False
-        raise e
-
-def initialize_system_threaded():
-    """Initialize the system using a separate thread with its own event loop"""
-    global qa_chain, vectorstore, system_initialized
-    
-    async def async_init():
-        try:
-            logger.info("Starting system initialization in async context...")
-            
-            # Check for API key
-            api_key = os.environ.get("GOOGLE_API_KEY")
-            if not api_key:
-                raise ValueError("GOOGLE_API_KEY environment variable not set")
-            
-            # Check if PDF exists
-            pdf_path = 'indian_constitution.pdf'
-            if not os.path.exists(pdf_path):
-                raise FileNotFoundError(f"Constitution PDF not found at {pdf_path}")
-            
-            # Load the Indian Constitution PDF
-            logger.info("Loading Indian Constitution PDF...")
-            loader = PyPDFLoader(pdf_path)
-            documents = loader.load()
-            
-            if not documents:
-                raise ValueError("No content found in the PDF")
-            
-            logger.info(f"Loaded {len(documents)} pages from the Constitution")
-            
-            # Split documents into chunks
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1500,
                 chunk_overlap=300,
@@ -308,55 +184,101 @@ def initialize_system_threaded():
                 separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""]
             )
             texts = text_splitter.split_documents(documents)
-            
             logger.info(f"Split into {len(texts)} text chunks")
-            
-            # Create embeddings and vector store with ChromaDB
-            logger.info("Creating embeddings...")
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            
-            persist_directory = "./chroma_db"
-            vectorstore = Chroma.from_documents(
-                documents=texts,
-                embedding=embeddings,
-                persist_directory=persist_directory
+        except Exception as e:
+            raise Exception(f"Failed to split documents: {str(e)}")
+        
+        # Create embeddings and vector store with ChromaDB
+        logger.info("Creating embeddings with ChromaDB...")
+        try:
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/embedding-001",
+                google_api_key=api_key
             )
             
-            # Initialize the LLM
+            # Create ChromaDB vectorstore (in-memory for deployment)
+            # Use a temporary directory for ChromaDB persistence on Render
+            if os.environ.get('RENDER'):  # Render deployment
+                import tempfile
+                temp_dir = tempfile.mkdtemp()
+                vectorstore = Chroma.from_documents(
+                    documents=texts,
+                    embedding=embeddings,
+                    persist_directory=temp_dir
+                )
+            else:  # Local development
+                persist_directory = "./chroma_db"
+                os.makedirs(persist_directory, exist_ok=True)
+                vectorstore = Chroma.from_documents(
+                    documents=texts,
+                    embedding=embeddings,
+                    persist_directory=persist_directory
+                )
+            
+            logger.info("ChromaDB vectorstore created successfully")
+            
+        except Exception as e:
+            logger.error(f"Error creating embeddings: {e}")
+            raise Exception(f"Failed to create embeddings: {str(e)}. Please check your Google API key and internet connection.")
+        
+        # Initialize the LLM with optimized parameters
+        try:
             llm = GoogleGenerativeAI(
-                model='gemini-2.0-flash',
+                model='gemini-2.0-flash-exp',  # Updated model name
                 temperature=0.2,
-                max_output_tokens=8192
+                max_output_tokens=8192,
+                google_api_key=api_key
             )
-            
-            # Create enhanced prompt template
+            logger.info("LLM initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing LLM: {e}")
+            # Fallback to older model
+            try:
+                llm = GoogleGenerativeAI(
+                    model='gemini-pro',
+                    temperature=0.2,
+                    max_output_tokens=8192,
+                    google_api_key=api_key
+                )
+                logger.info("LLM initialized with fallback model")
+            except Exception as fallback_e:
+                raise Exception(f"Failed to initialize LLM: {str(fallback_e)}. Please check your Google API key.")
+        
+        # Create enhanced prompt template
+        try:
             prompt = create_enhanced_prompt()
-            
-            # Create the QA chain
+            logger.info("Prompt template created successfully")
+        except Exception as e:
+            raise Exception(f"Failed to create prompt template: {str(e)}")
+        
+        # Create the QA chain with enhanced retrieval
+        try:
             qa_chain = RetrievalQA.from_chain_type(
                 llm=llm,
                 chain_type="stuff",
                 retriever=vectorstore.as_retriever(
-                    search_type="similarity",
-                    search_kwargs={"k": 8}
+                    search_type="similarity",  # ChromaDB uses similarity search
+                    search_kwargs={
+                        "k": 8,  # Retrieve more relevant chunks
+                    }
                 ),
                 chain_type_kwargs={"prompt": prompt},
                 return_source_documents=True
             )
-            
-            return "System initialized successfully! Ready to generate legal documents."
-            
+            logger.info("QA chain created successfully")
         except Exception as e:
-            logger.error(f"Async initialization failed: {str(e)}")
-            raise e
-    
-    try:
-        # Run the async initialization in a separate thread
-        result = run_async_in_thread(async_init())
+            raise Exception(f"Failed to create QA chain: {str(e)}")
+        
         system_initialized = True
-        return result
+        logger.info("System initialization completed successfully!")
+        return "System initialized successfully! Ready to generate legal documents."
+        
     except Exception as e:
+        error_msg = str(e)
+        logger.error(f"System initialization failed: {error_msg}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         system_initialized = False
+        initialization_error = error_msg
         raise e
 
 @app.route('/')
@@ -368,13 +290,9 @@ def home():
 def generate_document():
     """Generate legal document with enhanced processing"""
     try:
-        # Ensure event loop for this request
-        ensure_event_loop()
-        
         if not system_initialized:
-            return jsonify({
-                "error": "System not initialized. Please upload Constitution PDF and initialize the system first."
-            }), 500
+            error_msg = initialization_error or "System not initialized. Please upload Constitution PDF and initialize the system first."
+            return jsonify({"error": error_msg}), 500
         
         # Extract and validate form data
         case_type = request.form.get('case_type', '').strip()
@@ -415,10 +333,13 @@ def generate_document():
         logger.info(f"Generating legal document for case type: {case_type}")
         
         # Generate the document using the QA chain
-        result = qa_chain({"query": user_query})
-        
-        legal_document = result['result']
-        source_docs = result['source_documents']
+        try:
+            result = qa_chain({"query": user_query})
+            legal_document = result['result']
+            source_docs = result['source_documents']
+        except Exception as e:
+            logger.error(f"Document generation error: {str(e)}")
+            return jsonify({"error": f"Failed to generate document: {str(e)}"}), 500
         
         # Process constitutional references
         constitutional_refs = []
@@ -458,33 +379,41 @@ def generate_document():
 def initialize():
     """Initialize the system with enhanced error handling"""
     try:
-        # Try the simple approach first
-        try:
-            message = initialize_system()
-        except Exception as e:
-            if "event loop" in str(e).lower():
-                logger.info("Falling back to threaded initialization...")
-                message = initialize_system_threaded()
-            else:
-                raise e
-        
-        return jsonify({"message": message, "status": "success"})
+        logger.info("Received initialization request")
+        message = initialize_system()
+        return jsonify({
+            "message": message, 
+            "status": "success",
+            "initialized": system_initialized
+        })
     except Exception as e:
-        logger.error(f"Initialization error: {str(e)}")
-        return jsonify({"error": f"Initialization failed: {str(e)}", "status": "error"}), 500
+        error_msg = str(e)
+        logger.error(f"Initialization error: {error_msg}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": error_msg, 
+            "status": "error",
+            "initialized": False,
+            "details": "Check server logs for more information"
+        }), 500
 
 @app.route('/upload_constitution', methods=['POST'])
 def upload_constitution():
     """Upload Indian Constitution PDF with enhanced validation"""
     try:
+        logger.info("Received file upload request")
+        
         if 'file' not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
+            return jsonify({"error": "No file uploaded", "status": "error"}), 400
         
         file = request.files['file']
         if file.filename == '':
-            return jsonify({"error": "No file selected"}), 400
+            return jsonify({"error": "No file selected", "status": "error"}), 400
         
-        if file and allowed_file(file.filename):
+        if not file or not allowed_file(file.filename):
+            return jsonify({"error": "Please upload a valid PDF file", "status": "error"}), 400
+        
+        try:
             filename = secure_filename("indian_constitution.pdf")
             file_path = os.path.join(UPLOAD_FOLDER, filename)
             
@@ -500,26 +429,26 @@ def upload_constitution():
             
             logger.info("Constitution PDF uploaded successfully")
             
-            # Auto-initialize the system with error handling
-            try:
-                message = initialize_system()
-            except Exception as e:
-                if "event loop" in str(e).lower():
-                    logger.info("Using threaded initialization after upload...")
-                    message = initialize_system_threaded()
-                else:
-                    raise e
-            
             return jsonify({
-                "message": f"Constitution uploaded and {message}",
-                "status": "success"
+                "message": "Constitution PDF uploaded successfully. Please click 'Initialize System' to complete setup.",
+                "status": "success",
+                "next_step": "Click 'Initialize System' button"
             })
-        else:
-            return jsonify({"error": "Please upload a valid PDF file"}), 400
+            
+        except Exception as e:
+            logger.error(f"File handling error: {str(e)}")
+            return jsonify({
+                "error": f"Failed to save file: {str(e)}", 
+                "status": "error"
+            }), 500
             
     except Exception as e:
         logger.error(f"Upload error: {str(e)}")
-        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": f"Upload failed: {str(e)}", 
+            "status": "error"
+        }), 500
 
 @app.route('/system_status')
 def system_status():
@@ -528,16 +457,38 @@ def system_status():
         "initialized": system_initialized,
         "constitution_pdf_exists": os.path.exists("indian_constitution.pdf"),
         "api_key_set": bool(os.environ.get("GOOGLE_API_KEY")),
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "initialization_error": initialization_error
     })
 
 @app.errorhandler(404)
 def not_found_error(error):
+    """Handle 404 errors"""
+    if request.path.startswith('/api/') or request.is_json:
+        return jsonify({"error": "Endpoint not found", "status": "error"}), 404
     return render_template('error.html', error_message="Page not found"), 404
 
 @app.errorhandler(500)
 def internal_error(error):
+    """Handle 500 errors"""
+    logger.error(f"Internal server error: {str(error)}")
+    if request.path.startswith('/api/') or request.is_json or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({"error": "Internal server error", "status": "error"}), 500
     return render_template('error.html', error_message="Internal server error"), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle all unhandled exceptions"""
+    logger.error(f"Unhandled exception: {str(e)}")
+    logger.error(f"Full traceback: {traceback.format_exc()}")
+    
+    if request.path.startswith('/api/') or request.is_json or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({
+            "error": "An unexpected error occurred", 
+            "status": "error",
+            "details": str(e)
+        }), 500
+    return render_template('error.html', error_message=f"An unexpected error occurred: {str(e)}"), 500
 
 if __name__ == '__main__':
     print("="*60)
