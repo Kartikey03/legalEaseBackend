@@ -216,15 +216,21 @@ def initialize_system():
         try:
             embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
             
-            # Create a temporary directory for ChromaDB
-            persist_directory = "./chroma_db"
-            
-            # Create ChromaDB vectorstore
-            vectorstore = Chroma.from_documents(
-                documents=texts,
-                embedding=embeddings,
-                persist_directory=persist_directory
-            )
+            # Create ChromaDB vectorstore (in-memory for deployment)
+            # For production deployment, we use in-memory storage
+            if os.environ.get('RENDER'):  # Render deployment
+                vectorstore = Chroma.from_documents(
+                    documents=texts,
+                    embedding=embeddings,
+                    # No persist_directory = in-memory storage
+                )
+            else:  # Local development
+                persist_directory = "./chroma_db"
+                vectorstore = Chroma.from_documents(
+                    documents=texts,
+                    embedding=embeddings,
+                    persist_directory=persist_directory
+                )
             
         except Exception as e:
             logger.error(f"Error creating embeddings: {e}")
