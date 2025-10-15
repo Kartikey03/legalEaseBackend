@@ -1,3 +1,4 @@
+<!-- FILE 1: index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -154,14 +155,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚖️ Legal Document Generator</h1>
+            <h1>Legal Document Generator</h1>
             <p>Generate professional legal documents based on the Indian Constitution</p>
         </div>
 
         <div class="form-container">
-            <!-- Constitution Upload Section -->
             <div class="upload-section">
-                <h3>📄 Upload Indian Constitution PDF (Admin Only)</h3>
+                <h3>Upload Indian Constitution PDF (Admin Only)</h3>
                 <p style="margin: 10px 0; color: #666;">Upload the Indian Constitution PDF to initialize the system</p>
                 <form id="uploadForm" enctype="multipart/form-data">
                     <input type="file" id="constitutionFile" name="file" accept=".pdf" style="margin-bottom: 10px;">
@@ -175,7 +175,6 @@
                 <strong>Note:</strong> Please ensure the system is initialized with the Indian Constitution PDF before generating documents.
             </div>
 
-            <!-- Legal Document Generation Form -->
             <form id="legalForm" method="POST" action="/generate_document">
                 <div class="form-group">
                     <label for="case_type">Case Type</label>
@@ -185,11 +184,6 @@
                         <option value="criminal">Criminal Case</option>
                         <option value="constitutional">Constitutional Case</option>
                         <option value="writ_petition">Writ Petition</option>
-                        <option value="family">Family Law Case</option>
-                        <option value="property">Property Dispute</option>
-                        <option value="employment">Employment Dispute</option>
-                        <option value="consumer">Consumer Protection</option>
-                        <option value="other">Other</option>
                     </select>
                 </div>
 
@@ -208,18 +202,16 @@
                 <div class="form-group">
                     <label for="case_details">Case Details & Facts</label>
                     <textarea id="case_details" name="case_details" 
-                              placeholder="Provide detailed description of the case, including relevant facts, dates, and circumstances. Be as specific as possible to generate an accurate legal document." required></textarea>
+                              placeholder="Provide detailed description of the case, including relevant facts, dates, and circumstances." required></textarea>
                 </div>
 
                 <div class="form-group">
                     <label for="relief_sought">Relief/Remedy Sought</label>
                     <textarea id="relief_sought" name="relief_sought" 
-                              placeholder="Describe what remedy or relief you are seeking from the court (e.g., compensation, injunction, declaration, etc.)" required></textarea>
+                              placeholder="Describe what remedy or relief you are seeking from the court." required></textarea>
                 </div>
 
-                <button type="submit" class="btn-primary">
-                    Generate Legal Document
-                </button>
+                <button type="submit" class="btn-primary">Generate Legal Document</button>
             </form>
 
             <div id="loading" class="loading">
@@ -230,12 +222,10 @@
     </div>
 
     <script>
-        // Handle form submission
         document.getElementById('legalForm').addEventListener('submit', function(e) {
             document.getElementById('loading').style.display = 'block';
         });
 
-        // Handle constitution upload
         document.getElementById('uploadForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -253,7 +243,7 @@
                 if (data.error) {
                     status.innerHTML = `<div style="color: red; margin-top: 10px;">Error: ${data.error}</div>`;
                 } else {
-                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✅ ${data.message}</div>`;
+                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✓ ${data.message}</div>`;
                 }
             })
             .catch(error => {
@@ -262,7 +252,6 @@
             });
         });
 
-        // Initialize system function
         function initializeSystem() {
             fetch('/initialize', {
                 method: 'POST'
@@ -273,7 +262,7 @@
                 if (data.error) {
                     status.innerHTML = `<div style="color: red; margin-top: 10px;">Error: ${data.error}</div>`;
                 } else {
-                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✅ ${data.message}</div>`;
+                    status.innerHTML = `<div style="color: green; margin-top: 10px;">✓ ${data.message}</div>`;
                 }
             })
             .catch(error => {

@@ -51,12 +51,7 @@ uploads/
 logs/
 *.log
 
-# Vector Database - DO NOT COMMIT THESE
-chroma_db/
-chromadb/
-*.db
-*.sqlite
-*.sqlite3
+
 
 # Environment variables
 .env

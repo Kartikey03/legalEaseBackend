@@ -1,6 +1,6 @@
+<!-- FILE 2: result.html -->
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +20,7 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 15px;
@@ -94,16 +94,37 @@
         }
 
         .legal-document {
-            background: #fff;
+            background: #fafafa;
             border: 2px solid #e1e8ed;
             border-radius: 10px;
             padding: 30px;
-            font-family: 'Times New Roman', serif;
+            font-family: 'Courier New', monospace;
             line-height: 1.8;
-            white-space: pre-wrap;
             font-size: 14px;
-            max-height: 600px;
+            max-height: 700px;
             overflow-y: auto;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-x: hidden;
+        }
+
+        .legal-document::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .legal-document::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .legal-document::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .legal-document::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         .constitutional-refs {
@@ -125,6 +146,7 @@
             font-style: italic;
             color: #555;
             margin-bottom: 10px;
+            word-wrap: break-word;
         }
 
         .ref-source {
@@ -138,6 +160,7 @@
             gap: 15px;
             justify-content: center;
             margin-top: 30px;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -187,6 +210,26 @@
             color: #b8860b;
         }
 
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .legal-document {
+                font-size: 13px;
+                padding: 20px;
+                max-height: 500px;
+            }
+        }
+
         @media print {
             body {
                 background: white;
@@ -202,27 +245,35 @@
                 background: #2c3e50 !important;
                 color: white !important;
                 -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             .action-buttons,
-            .constitutional-refs {
+            .constitutional-refs,
+            .disclaimer {
                 display: none;
+            }
+
+            .legal-document {
+                max-height: none;
+                overflow: visible;
+                border: none;
+                padding: 0;
             }
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div class="header">
-            <h1>✅ Legal Document Generated</h1>
+            <h1>Legal Document Generated</h1>
             <p>Your legal document has been successfully created</p>
         </div>
 
         <div class="content">
             <!-- Case Information -->
             <div class="case-info">
-                <h3>📋 Case Information</h3>
+                <h3>Case Information</h3>
                 <div class="case-info-grid">
                     <div class="info-item">
                         <div class="info-label">Case Type</div>
@@ -241,14 +292,14 @@
 
             <!-- Generated Legal Document -->
             <div class="document-section">
-                <h2 class="section-title">📜 Generated Legal Document</h2>
+                <h2 class="section-title">Generated Legal Document</h2>
                 <div class="legal-document" id="legalDocument">{{ legal_document }}</div>
             </div>
 
             <!-- Constitutional References -->
             {% if constitutional_refs %}
             <div class="constitutional-refs">
-                <h3 class="section-title">⚖️ Relevant Constitutional Provisions</h3>
+                <h3 class="section-title">Relevant Constitutional Provisions</h3>
                 {% for ref in constitutional_refs %}
                 <div class="ref-item">
                     <div class="ref-content">{{ ref.content }}</div>
@@ -260,69 +311,70 @@
 
             <!-- Action Buttons -->
             <div class="action-buttons">
-                <button onclick="printDocument()" class="btn btn-success">🖨️ Print Document</button>
-                <button onclick="downloadDocument()" class="btn btn-primary">💾 Download as Text</button>
-                <a href="/" class="btn btn-secondary">🔄 Generate Another Document</a>
+                <button onclick="printDocument()" class="btn btn-success">Print Document</button>
+                <button onclick="downloadDocument()" class="btn btn-primary">Download as Text</button>
+                <a href="/" class="btn btn-secondary">Generate Another Document</a>
             </div>
 
             <!-- Disclaimer -->
             <div class="disclaimer">
-                <h4>⚠️ Important Disclaimer</h4>
-                <p><strong>Legal Notice:</strong> This document is generated by an AI system and is intended for
-                    informational purposes only. While it is based on provisions from the Indian Constitution, it should
-                    not be considered as professional legal advice. We strongly recommend consulting with a qualified
-                    lawyer before filing any legal document in court. The accuracy, completeness, and suitability of
-                    this document for your specific case cannot be guaranteed.</p>
+                <h4>Important Disclaimer</h4>
+                <p><strong>Legal Notice:</strong> This document is generated by an AI system and is intended for informational purposes only. While based on the Indian Constitution, it is not professional legal advice. Consult a qualified lawyer before filing any legal document in court.</p>
                 <br>
-                <p><strong>Recommendation:</strong> Please have this document reviewed and modified by a licensed
-                    attorney familiar with current Indian law and court procedures before submission.</p>
+                <p><strong>Recommendation:</strong> Have this document reviewed and modified by a licensed attorney familiar with current Indian law before submission.</p>
             </div>
         </div>
     </div>
 
-
     <script>
         function printDocument() {
-            const content = document.getElementById("legalDocument").innerHTML;
-            const printWindow = window.open("", "", "height=600,width=800");
-            let doc = "";
-            doc += "<!DOCTYPE html>";
-            doc += "<html><head><title>Generated Legal Document</title>";
-            doc += "<style>body { font-family: Arial, sans-serif; padding: 20px; } h2 { text-align: center; }</style>";
-            doc += "</head><body>";
-            doc += "<h2>📜 Generated Legal Document</h2>";
-            doc += content;
-            doc += "<" + "/body><" + "/html>";
-            printWindow.document.write(doc);
+            const documentText = document.getElementById('legalDocument').textContent;
+            const printWindow = window.open('', '', 'height=700,width=900');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Legal Document</title>
+                    <style>
+                        body {
+                            font-family: 'Times New Roman', serif;
+                            margin: 40px;
+                            line-height: 1.6;
+                        }
+                        pre {
+                            white-space: pre-wrap;
+                            word-wrap: break-word;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <pre>${documentText}</pre>
+                </body>
+                </html>
+            `);
             printWindow.document.close();
-            printWindow.print();
+            setTimeout(() => printWindow.print(), 250);
         }
-    </script>
 
-    <script>
         function downloadDocument() {
             const documentContent = document.getElementById('legalDocument').textContent;
-            const blob = new Blob([documentContent], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = 'legal_document_{{ case_details.case_type }}.txt';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            const blob = new Blob([documentContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'legal_document_{{ case_details.case_type }}_' + new Date().getTime() + '.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
 
-        // Auto-scroll to document section
         document.addEventListener('DOMContentLoaded', function () {
-            document.querySelector('.document-section').scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
+            const section = document.querySelector('.document-section');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         });
     </script>
-
 </body>
-
 </html>
